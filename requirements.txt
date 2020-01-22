@@ -1,0 +1,11 @@
+certifi==2019.6.16
+chardet==3.0.4
+Django==2.0.6
+idna==2.7
+PyJWT==1.7.1
+pyspark==2.4.3
+pytz==2019.1
+requests==2.19.1
+six==1.14.0
+twilio==6.35.2
+urllib3==1.23
