@@ -1,7 +1,5 @@
-from django.http import JsonResponse, HttpResponse
-from django.shortcuts import render
+from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.generic import View
 
 from app.utils import *
 
@@ -25,77 +23,56 @@ def webhook(request):
             print('msg_details', len(msg_details['entities']), msg_details)
             with open('mess_in.txt', 'a+') as w:
                 w.write('\n{}\n{}'.format(incoming_message, msg_details))
+            if msg_details['fb_user_id']:
+                check_user(msg_details['fb_user_id'])
 
-            if msg_details['fb_user_txt'] == 'test':
+            if msg_details['fb_user_txt'] and 'push' in msg_details['fb_user_txt'].lower():
+                user_dict = {
+                    'rt': '2769736776454856',
+                    'sh': '2685531254857798',
+                    'rh': '3488020257935762',
+                    'sa': '2646325785465682'
+
+                }
+                category_dict = {
+                    'a': 'adventure',
+                    'r': 'romantic',
+                    'h': 'historic'
+                }
+                user, cat = msg_details['fb_user_txt'].lower().strip().split(' ')[1:]
+
+                send_lx([category_dict[cat]], user_dict[user], others=False)
+                reply = 'pushed.'
+                send_text_reply(msg_details['fb_user_id'], reply)
+            elif msg_details['fb_user_txt'] and msg_details['fb_user_txt'].lower() == 'test':
                 test(msg_details['fb_user_id'])
+            elif msg_details['fb_user_txt'] and msg_details['fb_user_txt'].lower() == 'clear':
+                for vote in Votes.objects.all():
+                    vote.voted_by.clear()
+                History.objects.all().delete()
+                reply = 'cleared.'
+                send_text_reply(msg_details['fb_user_id'], reply)
+            elif msg_details['payload']:
+                lx_id = msg_details['payload']
+                fbid = msg_details['fb_user_id']
+                user = MyUser.objects.filter(username=fbid).first()
+                vote = Votes.objects.filter(lx_id=lx_id).first()
+                if user is not None and vote is not None and user not in vote.voted_by.all():
+                    vote.voted_by.add(user)
+                    reply = 'Thanks for your vote.'
+                else:
+                    reply = 'You have already voted.'
+                send_text_reply(msg_details['fb_user_id'], reply)
+            elif msg_details['intents'] and 'Hello' in msg_details['intents']:
+                reply = 'Hello {}, \nHow can I help you?'.format(check_user_name(msg_details['fb_user_id']))
+                send_text_reply(msg_details['fb_user_id'], reply)
             elif msg_details['entities']:
-                send_to_others(msg_details['entities'], msg_details['fb_user_id'])
+                send_lx(msg_details['entities'], msg_details['fb_user_id'], others=True)
             else:
-                send_text_reply(msg_details['fb_user_id'], 'Entities not found')
+                show_all_categories(msg_details['fb_user_id'])
         except Exception as e:
             print(e)
             with open('error_fb.txt', 'a+') as w:
                 w.write('\n{}\n'.format(e))
         finally:
             return HttpResponse("Success", status=200)
-
-
-@csrf_exempt
-def upvote(request):
-    if request.method == 'GET':
-        lx_id = request.GET.get('lid', None)
-        fbid = request.GET.get('fbid', None)
-        user = MyUser.objects.filter(username=fbid).first()
-        vote = Votes.objects.filter(lx_id=lx_id).first()
-        if user is not None and vote is not None and user not in vote.voted_by.all():
-            vote.voted_by.add(user)
-            return HttpResponse("<h1>Successfully up-voted.</h1>")
-        else:
-            return HttpResponse("<h1>You have already up-voted.</h1>")
-
-
-@csrf_exempt
-def msg_in(request):
-    if request.method == 'POST':
-        with open('indata.txt', 'a+') as w:
-            w.write('\n{}\n{}'.format(request.POST, request.body))
-        data = dict(request.POST)
-        mob, msg = get_message_details(data)
-        obj = TwillioManager()
-        if 'add-user' in msg.lower():
-            add_user(msg)
-            msg = 'User details successfully saved ..!'
-        else:
-            user = MyUser.objects.filter(username=mob.replace('+91', '')).first()
-            name = user.first_name if user is not None else ''
-            msg = 'Hi {},\nHow can I help you ?'.format(name)
-        obj.send_message(mob, msg)
-        return JsonResponse({'status': 'success'})
-
-
-@csrf_exempt
-def call_back(request):
-    if request.method == 'GET':
-        import pickle
-        pickle.dump(request, 'request.pickle')
-        return JsonResponse({'foo': 'bar'})
-
-    if request.method == 'POST':
-        with open('ourdata.txt', 'a+') as w:
-            w.write('\n{}\n{}'.format(request.POST, request.body))
-        print(request.POST)
-
-        return JsonResponse({'foo': 'bar'})
-
-
-class TestView(View):
-
-    def get(self, request):
-        return render(request, 'test.html')
-
-    def post(self, request):
-        with open('ourdata.txt', 'w') as w:
-            w.write(request.POST)
-
-        print(request.POST)
-        return JsonResponse({'foo': 'bar'})

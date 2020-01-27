@@ -15,7 +15,6 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.0/howto/deployment/checklist/
 
@@ -26,7 +25,6 @@ SECRET_KEY = '!+%c5@@drukjzggd2*#7k^z(rj(do+j5166)kina48r19$%cse'
 DEBUG = True
 
 ALLOWED_HOSTS = ['*']
-
 
 # Application definition
 
@@ -70,7 +68,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'hu-bot.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/2.0/ref/settings/#databases
 
@@ -99,7 +96,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/2.0/topics/i18n/
 
@@ -113,7 +109,6 @@ USE_L10N = True
 
 USE_TZ = True
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/2.0/howto/static-files/
 
@@ -126,8 +121,9 @@ TWILIO_CHAT_SERVICE_SID = 'SK4bb28bfdeae796fdb8127a91f21c35c9'
 TWILIO_CHAT_SERVICE_SID = 'IS6c96019d20fb4f8b982d96098dce3027'
 
 FB_PAGE_TOKEN = 'EAAHWB3Yp1VoBANdRSVRbZBUj15dYLQtHHZBrr7g9sTghA14ZCeZCmq1ZCcVMnlmdpKnHf8MClHGI1ZBn8SA8l6gZCzRwhB7pUPV5rnLuXGp06bIBxWGoRa2ZCu7I0fvob0MdPvnDPnC4ygJy4URbPmMsOP6rVTY0qfeS6AxorymxQxDWfSEVU7Dz'
+FB_PAGE_TOKEN = 'EAAHWB3Yp1VoBAIRd918w13uV2nZAQfyVodZBowMA3gz1dHnANOJ8c3LBVsmZCsJN0pZAijroKsejfXng6baWZCZCn6VgGhZAv9Jl8ZBmi7AgBZBROqZBMoCd3sIpAOvhxLCqcZCJ1OT1U7sgtKKgRkR34PU0WGq5F8s81QW8S7cairM1FFnkdXCrCRu'
 # HU_BOT_FB_PAGE_TOKEN = 'EAAHWB3Yp1VoBALtyRvtBN5L9pbBLmIDUKuW0FJo63hbltmKkjp0ddOgnu2QYn03wDpBro94Qqvu1pxavdPa4lIm1Ujiu87vl6JBADHESI69m3N7XZBdp0e9N4uELVuYUvEUkpYTSGNVUsv5xUZCitCzZCUwQIHZBnDbnUPyXUX2CnDd9NU6J'
 
 AUTH_USER_MODEL = 'app.MyUser'
 
-URL = 'https://e24d224f.ngrok.io'
+URL = 'https://948f4d1a.ngrok.io'
