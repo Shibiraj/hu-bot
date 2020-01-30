@@ -139,7 +139,7 @@ def get_all_id():
     return [activity['id'] for activity in json_data['activities']]
 
 
-def get_template(activities, fbid, others):
+def get_template(activities, fbid, upvote_option):
     data = {
         "recipient": {
             "id": fbid
@@ -176,7 +176,7 @@ def get_template(activities, fbid, others):
                 }
             ]
         }
-        if others:
+        if upvote_option:
             upvote_dict = {
                 "type": "postback",
                 "title": "Upvote",
@@ -203,9 +203,34 @@ def is_already_sent(sender, req_user):
     return History.objects.filter(user__username=sender, is_active=True, req_user=req_user).first() is not None
 
 
-def send_lx(entities, fbid, others=True):
+def send_lx(entities, fbid, upvote_option=True):
+    if upvote_option:
+        for recipient in get_the_coumminty_fbid(fbid):
+            reply = 'Your question has been forwarded to the community, Please wait..'
+            send_text_reply(fbid, reply)
+            activities = get_full_activity(entities)
+            data = get_template(activities, recipient, upvote_option)
+            response_msg = json.dumps(data)
+            status = requests.post(
+                endpoint,
+                headers={"Content-Type": "application/json"},
+                data=response_msg)
+            print(status.json())
+
+    else:
+        activities = get_full_activity(entities)
+        data = get_template(activities, fbid, upvote_option)
+        response_msg = json.dumps(data)
+        status = requests.post(
+            endpoint,
+            headers={"Content-Type": "application/json"},
+            data=response_msg)
+        print(status.json())
+
+
+def send_lx_old(entities, fbid, upvote_option=True):
     already_sent = False
-    if others:
+    if upvote_option:
         for recipient in get_the_coumminty_fbid(fbid):
             if not is_already_sent(recipient, fbid):
                 if not already_sent:
@@ -215,7 +240,7 @@ def send_lx(entities, fbid, others=True):
                 user = MyUser.objects.filter(username=recipient).first()
                 History.objects.create(user=user, req_user=fbid)
                 activities = get_full_activity(entities)
-                data = get_template(activities, recipient, others)
+                data = get_template(activities, recipient, upvote_option)
                 response_msg = json.dumps(data)
                 status = requests.post(
                     endpoint,
@@ -225,7 +250,7 @@ def send_lx(entities, fbid, others=True):
 
     else:
         activities = get_full_activity(entities)
-        data = get_template(activities, fbid, others)
+        data = get_template(activities, fbid, upvote_option)
         response_msg = json.dumps(data)
         status = requests.post(
             endpoint,
@@ -272,6 +297,15 @@ def show_all_categories(fbid):
 
 
 def test(fbid):
+    activities = get_full_activity(['adeventure'])
+    data = get_template(activities, [fbid], False)
+    response_msg = json.dumps(data)
+    status = requests.post(
+        endpoint,
+        headers={"Content-Type": "application/json"},
+        data=response_msg)
+    return
+
     data = {
         "recipient": {
             "id": fbid
