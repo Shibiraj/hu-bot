@@ -5,7 +5,7 @@ from django.conf import settings
 from django.db.models import Q
 from twilio.rest import Client
 
-from app.models import MyUser, Votes, History
+from app.models import MyUser, Votes, History, RestaurantVote
 
 FB_ENDPOINT = 'https://graph.facebook.com'
 endpoint = f"{FB_ENDPOINT}/me/messages?access_token={settings.FB_PAGE_TOKEN}"
@@ -70,21 +70,30 @@ def same(l1, l2):
     return l2.lower() in lower(l1) or any([1 for i in l1 if i.lower() in l2.lower()])
 
 
-def from_json(entities):
-    result = []
-    with open('lx-all.json', 'r') as f:
-        json_data = json.load(f)
+def get_full_data(entities, type='visit'):
+    if type == 'visit':
+        result = []
+        with open('lx-all.json', 'r') as f:
+            json_data = json.load(f)
 
-    for activity in json_data['activities']:
-        if same(entities, activity['categories']):
-            activity.update({'vote_count': get_upvote_count(activity['id'])})
-            result.append(activity)
-    result = sorted(result, key=lambda x: x['vote_count'], reverse=True)
-    return result
+        for activity in json_data['activities']:
+            if same(entities, activity['categories']):
+                activity.update({'vote_count': get_upvote_count(activity['id'])})
+                result.append(activity)
+        result = sorted(result, key=lambda x: x['vote_count'], reverse=True)
 
+        return result[:5]
+    else:
+        result = []
+        with open('hotels.json', 'r') as f:
+            json_data = json.load(f)
 
-def get_full_activity(entities):
-    return from_json(entities)[:5]
+        for activity in json_data['restaurants']:
+            if same(entities, activity['categories']):
+                activity.update({'vote_count': get_upvote_count(activity['id'], 'hotels')})
+                result.append(activity)
+        result = sorted(result, key=lambda x: x['vote_count'], reverse=True)
+        return result
 
 
 def get_the_coumminty_fbid(fbid, address='chicago'):
@@ -93,9 +102,13 @@ def get_the_coumminty_fbid(fbid, address='chicago'):
                 'username')]
 
 
-def get_upvote_count(lx_id):
-    vote = Votes.objects.filter(lx_id=lx_id).first()
-    return vote.voted_by.count() if vote else 0
+def get_upvote_count(lx_id, type='activity'):
+    if type == 'activity':
+        vote = Votes.objects.filter(lx_id=lx_id).first()
+        return vote.voted_by.count() if vote else 0
+    else:
+        vote = RestaurantVote.objects.filter(rest_id=lx_id).first()
+        return vote.voted_by.count() if vote else 0
 
 
 def get_entities(message):
@@ -116,7 +129,8 @@ def get_intents(message):
 
 
 def parser_incoming_message(incoming_message):
-    result = {'fb_user_id': None, 'fb_user_txt': None, 'entities': [], 'intents': [], 'payload': None}
+    result = {'fb_user_id': None, 'fb_user_txt': None, 'entities': [], 'intents': [], 'payload': None,
+              'attachment': None, 'quick_reply': None}
     for entry in incoming_message['entry']:
         for message in entry['messaging']:
             fb_user_id = message['sender']['id']  # sweet!
@@ -125,8 +139,12 @@ def parser_incoming_message(incoming_message):
                 entities = get_entities(message)
                 intents = get_intents(message)
                 fb_user_txt = message['message'].get('text')
+                attachment = message['message'].get('attachments')
+                quick_reply = message['message'].get('quick_reply').get('payload') if message['message'].get(
+                    'quick_reply') else None
+                attachment = attachment[0] if attachment and len(attachment) > 0 else None
                 result.update({'fb_user_txt': fb_user_txt, 'entities': entities,
-                               'intents': intents})
+                               'intents': intents, 'attachments': attachment, 'quick_reply': quick_reply})
             if 'postback' in message:
                 result.update({'payload': message['postback']['payload']})
             break
@@ -139,7 +157,7 @@ def get_all_id():
     return [activity['id'] for activity in json_data['activities']]
 
 
-def get_template(activities, fbid, upvote_option):
+def get_template(activities, fbid, upvote_option, type):
     data = {
         "recipient": {
             "id": fbid
@@ -164,14 +182,14 @@ def get_template(activities, fbid, upvote_option):
             "default_action": {
                 "type": "web_url",
                 "url": "https://wwwexpediacom.integration.sb.karmalab.net/things-to-do/{}".format(
-                    activity['formattedTitle']),
+                    activity['formattedTitle']) if not activity.get('website') else activity.get('website'),
                 "webview_height_ratio": "tall",
             },
             "buttons": [
                 {
                     "type": "web_url",
                     "url": "https://wwwexpediacom.integration.sb.karmalab.net/things-to-do/{}".format(
-                        activity['formattedTitle']),
+                        activity['formattedTitle']) if not activity.get('website') else activity.get('website'),
                     "title": "View Website"
                 }
             ]
@@ -203,13 +221,18 @@ def is_already_sent(sender, req_user):
     return History.objects.filter(user__username=sender, is_active=True, req_user=req_user).first() is not None
 
 
-def send_lx(entities, fbid, upvote_option=True):
+def send_result(entities, fbid, upvote_option=True, type='visit'):
     if upvote_option:
+        reply = 'Your question has been forwarded to the community, Please wait..'
+        send_text_reply(fbid, reply)
         for recipient in get_the_coumminty_fbid(fbid):
-            reply = 'Your question has been forwarded to the community, Please wait..'
-            send_text_reply(fbid, reply)
-            activities = get_full_activity(entities)
-            data = get_template(activities, recipient, upvote_option)
+            if recipient.lower() == '2769736776454856':
+                continue
+            _type = 'adventurous activities' if type == 'visit' else 'Italian restaurants'
+            msg = 'A fellow traveler has asked your suggestion about best {} near Chicago'.format(_type)
+            send_text_reply(recipient, msg)
+            activities = get_full_data(entities, type)
+            data = get_template(activities, recipient, upvote_option, type)
             response_msg = json.dumps(data)
             status = requests.post(
                 endpoint,
@@ -218,76 +241,107 @@ def send_lx(entities, fbid, upvote_option=True):
             print(status.json())
 
     else:
-        activities = get_full_activity(entities)
-        data = get_template(activities, fbid, upvote_option)
+        activities = get_full_data(entities, type)
+        data = get_template(activities, fbid, upvote_option, type)
         response_msg = json.dumps(data)
         status = requests.post(
             endpoint,
             headers={"Content-Type": "application/json"},
             data=response_msg)
-        print(status.json())
+        if type != 'visit':
+            reply = "Here are the local expert suggestions."
+            send_text_reply(fbid, reply)
+            image = 'https://i.ibb.co/RvVSXJV/Webp-net-compress-image.jpg'
 
-
-def send_lx_old(entities, fbid, upvote_option=True):
-    already_sent = False
-    if upvote_option:
-        for recipient in get_the_coumminty_fbid(fbid):
-            if not is_already_sent(recipient, fbid):
-                if not already_sent:
-                    reply = 'Your question has been forwarded to the community, Please wait..'
-                    send_text_reply(fbid, reply)
-                already_sent = True
-                user = MyUser.objects.filter(username=recipient).first()
-                History.objects.create(user=user, req_user=fbid)
-                activities = get_full_activity(entities)
-                data = get_template(activities, recipient, upvote_option)
-                response_msg = json.dumps(data)
-                status = requests.post(
-                    endpoint,
-                    headers={"Content-Type": "application/json"},
-                    data=response_msg)
-                print(status.json())
-
-    else:
-        activities = get_full_activity(entities)
-        data = get_template(activities, fbid, upvote_option)
-        response_msg = json.dumps(data)
-        status = requests.post(
-            endpoint,
-            headers={"Content-Type": "application/json"},
-            data=response_msg)
-        History.objects.filter(req_user=fbid).all().delete()
-        print(status.json())
-
-
-def show_all_categories(fbid):
-    data = {
-        "recipient": {
-            "id": fbid
-        },
-        "messaging_type": "RESPONSE",
-        "message": {
-            "text": "Please choose a category:",
-            "quick_replies": [
-                {
-                    "content_type": "text",
-                    "title": "Adventure",
-                    "payload": "",
-                    # "image_url":"https://i.ibb.co/bNrfXJZ/blue-circle-png-1.png"
-                }, {
-                    "content_type": "text",
-                    "title": "Romantic",
-                    "payload": "<POSTBACK_PAYLOAD>",
-                    # "image_url":"https://i.ibb.co/bNrfXJZ/blue-circle-png-1.png"
-                }, {
-                    "content_type": "text",
-                    "title": "Historic",
-                    "payload": "<POSTBACK_PAYLOAD>",
-                    # "image_url":"https://i.ibb.co/bNrfXJZ/blue-circle-png-1.png"
+            data = {
+                "recipient": {
+                    "id": fbid
+                },
+                "message": {
+                    "attachment": {
+                        "type": "template",
+                        "payload": {
+                            "template_type": "generic",
+                            "elements": [
+                                {
+                                    "title": "Found Hotel Chicago",
+                                    "image_url": image,
+                                    "subtitle": '613 N Wells St, Chicago, Illinois 60654',
+                                    "buttons": [
+                                        {
+                                            "type": "web_url",
+                                            "url": "https://wego.here.com/directions/mix//:e-eyJuYW1lIjoiIiwiYWRkcmVzcyI6IiIsImxhdGl0dWRlIjowLCJsb25naXR1ZGUiOjB9?map=52.50795,13.67088,15,normal&fb_locale=en_US",
+                                            "title": "View suggestion"
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
                 }
-            ]
+            }
+            response_msg = json.dumps(data)
+            status = requests.post(
+                endpoint,
+                headers={"Content-Type": "application/json"},
+                data=response_msg)
+
+        print(status.json())
+
+
+def show_all_categories(fbid, type):
+    if type == 'visit':
+        data = {
+            "recipient": {
+                "id": fbid
+            },
+            "messaging_type": "RESPONSE",
+            "message": {
+                "text": "Please choose a category:",
+                "quick_replies": [
+                    {
+                        "content_type": "text",
+                        "title": "Adventure",
+                        "payload": "Adventure",
+                    }, {
+                        "content_type": "text",
+                        "title": "Romantic",
+                        "payload": "Romantic",
+                    }, {
+                        "content_type": "text",
+                        "title": "Historic",
+                        "payload": "Historic",
+                    }
+                ]
+            }
         }
-    }
+    else:
+        data = {
+            "recipient": {
+                "id": fbid
+            },
+            "messaging_type": "RESPONSE",
+            "message": {
+                "text": "Please choose a cuisine type:",
+                "quick_replies": [
+                    {
+                        "content_type": "text",
+                        "title": "Italian",
+                        "payload": "Italian",
+                    },
+                    {
+                        "content_type": "text",
+                        "title": "Japanese",
+                        "payload": "Japanese",
+                    }, {
+                        "content_type": "text",
+                        "title": "Asian",
+                        "payload": "Asian",
+                    }
+                ]
+            }
+        }
+
     response_msg = json.dumps(data)
     status = requests.post(
         endpoint,
@@ -297,151 +351,51 @@ def show_all_categories(fbid):
 
 
 def test(fbid):
-    activities = get_full_activity(['adeventure'])
-    data = get_template(activities, [fbid], False)
-    response_msg = json.dumps(data)
-    status = requests.post(
-        endpoint,
-        headers={"Content-Type": "application/json"},
-        data=response_msg)
-    return
-
+    fbid = '3380788151996251'
     data = {
         "recipient": {
             "id": fbid
         },
+        "messaging_type": "RESPONSE",
         "message": {
-            "attachment": {
-                "type": "template",
-                "payload": {
-                    "template_type": "list",
-                    "top_element_style": "compact",
-                    "elements": [
-                        {
-                            "title": "Classic T-Shirt Collection",
-                            "subtitle": "See all our colors",
-                            "image_url": "https://media.int.expedia.com/int/localexpert/170364/9d32855e-6daf-4965-b333-b690b4595887.jpg?impolicy=resizecrop&rw=350&rh=197",
-                            "buttons": [
-                                {
-                                    "title": "View",
-                                    "type": "web_url",
-                                    "url": "https://peterssendreceiveapp.ngrok.io/collection",
-                                    "messenger_extensions": True,
-                                    "webview_height_ratio": "tall",
-                                    "fallback_url": "https://peterssendreceiveapp.ngrok.io/"
-                                }
-                            ]
-                        },
-                        {
-                            "title": "Classic White T-Shirt",
-                            "subtitle": "See all our colors",
-                            "default_action": {
-                                "type": "web_url",
-                                "url": "https://media.int.expedia.com/int/localexpert/170364/9d32855e-6daf-4965-b333-b690b4595887.jpg?impolicy=resizecrop&rw=350&rh=197",
-                                "messenger_extensions": False,
-                                "webview_height_ratio": "tall"
-                            }
-                        },
-                        {
-                            "title": "Classic Blue T-Shirt",
-                            "image_url": "https://media.int.expedia.com/int/localexpert/170364/9d32855e-6daf-4965-b333-b690b4595887.jpg?impolicy=resizecrop&rw=350&rh=197",
-                            "subtitle": "100% Cotton, 200% Comfortable",
-                            "default_action": {
-                                "type": "web_url",
-                                "url": "https://media.int.expedia.com/int/localexpert/170364/9d32855e-6daf-4965-b333-b690b4595887.jpg?impolicy=resizecrop&rw=350&rh=197",
-                                "messenger_extensions": True,
-                                "webview_height_ratio": "tall",
-                                "fallback_url": "https://media.int.expedia.com/int/localexpert/170364/9d32855e-6daf-4965-b333-b690b4595887.jpg?impolicy=resizecrop&rw=350&rh=197"
-                            },
-                            "buttons": [
-                                {
-                                    "title": "Shop Now",
-                                    "type": "web_url",
-                                    "url": "https://media.int.expedia.com/int/localexpert/170364/9d32855e-6daf-4965-b333-b690b4595887.jpg?impolicy=resizecrop&rw=350&rh=197",
-                                    "messenger_extensions": True,
-                                    "webview_height_ratio": "tall",
-                                    "fallback_url": "https://media.int.expedia.com/int/localexpert/170364/9d32855e-6daf-4965-b333-b690b4595887.jpg?impolicy=resizecrop&rw=350&rh=197"
-                                }
-                            ]
-                        }
-                    ],
-                    "buttons": [
-                        {
-                            "title": "View More",
-                            "type": "postback",
-                            "payload": "payload"
-                        }
-                    ]
+            "text": "Pick a color:",
+            "quick_replies": [
+                {
+                    "content_type": "location"
                 }
-            }
+            ]
         }
     }
     data = {
         "recipient": {
             "id": fbid
         },
+        "messaging_type": "RESPONSE",
+        "message": {
+            "text": "Please choose a category:",
+            "quick_replies": [
+                {
+                    "content_type": "user_phone_number",
+                    "title": "+98876767967676",
+                }
+            ]
+        }
+    }
+    lat, long = '55', '37'
+    data = {
+        "recipient": {"id": fbid},
         "message": {
             "attachment": {
                 "type": "template",
                 "payload": {
-                    "template_type": "list",
-                    "top_element_style": "compact",
-                    "elements": [
-                        {
-                            "title": "Classic T-Shirt Collection",
-                            "subtitle": "See all our colors",
-                            "image_url": "https://peterssendreceiveapp.ngrok.io/img/collection.png",
-                            "buttons": [
-                                {
-                                    "title": "View",
-                                    "type": "web_url",
-                                    "url": "https://peterssendreceiveapp.ngrok.io/collection",
-                                    "messenger_extensions": True,
-                                    "webview_height_ratio": "tall",
-                                    "fallback_url": "https://peterssendreceiveapp.ngrok.io/"
-                                }
-                            ]
-                        },
-                        {
-                            "title": "Classic White T-Shirt",
-                            "subtitle": "See all our colors",
-                            "default_action": {
-                                "type": "web_url",
-                                "url": "https://peterssendreceiveapp.ngrok.io/view?item=100",
-                                "messenger_extensions": False,
-                                "webview_height_ratio": "tall"
-                            }
-                        },
-                        {
-                            "title": "Classic Blue T-Shirt",
-                            "image_url": "https://peterssendreceiveapp.ngrok.io/img/blue-t-shirt.png",
-                            "subtitle": "100% Cotton, 200% Comfortable",
-                            "default_action": {
-                                "type": "web_url",
-                                "url": "https://peterssendreceiveapp.ngrok.io/view?item=101",
-                                "messenger_extensions": True,
-                                "webview_height_ratio": "tall",
-                                "fallback_url": "https://peterssendreceiveapp.ngrok.io/"
-                            },
-                            "buttons": [
-                                {
-                                    "title": "Shop Now",
-                                    "type": "web_url",
-                                    "url": "https://peterssendreceiveapp.ngrok.io/shop?item=101",
-                                    "messenger_extensions": True,
-                                    "webview_height_ratio": "tall",
-                                    "fallback_url": "https://peterssendreceiveapp.ngrok.io/"
-                                }
-                            ]
+                    "template_type": "generic",
+                    "elements": {
+                        "element": {
+                            "title": "Your current location",
+                            "image_url": "https:\/\/maps.googleapis.com\/maps\/api\/staticmap?size=764x400&center=" + lat + "," + long + "&zoom=25&markers=" + lat + "," + long,
+                            "item_url": "http:\/\/maps.apple.com\/maps?q=" + lat + "," + long + "&z=16"
                         }
-                    ],
-                    "buttons": [
-                        {
-                            "title": "View More",
-                            "type": "postback",
-                            "payload": "payload"
-                        }
-                    ]
+                    }
                 }
             }
         }
@@ -452,3 +406,4 @@ def test(fbid):
         headers={"Content-Type": "application/json"},
         data=response_msg)
     print(status.json())
+    return

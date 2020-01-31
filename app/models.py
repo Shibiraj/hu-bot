@@ -23,10 +23,20 @@ class Votes(models.Model):
                                                                         188309] else self.lx_id
 
 
+class RestaurantVote(models.Model):
+    rest_id = models.CharField(max_length=128, null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    voted_by = models.ManyToManyField(MyUser, related_name='rest_voted_user', blank=True)
+
+    def __str__(self):
+        return self.rest_id
+
+
 class History(models.Model):
     req_user = models.CharField(max_length=128, null=True, blank=True)
     user = models.ForeignKey(MyUser, null=True, blank=True, on_delete=models.CASCADE)
     is_active = models.BooleanField(default=True)
+
 
 class HistoryChat(models.Model):
     req_user = models.CharField(max_length=128, null=True, blank=True)

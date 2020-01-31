@@ -6,3 +6,4 @@ from app.models import *
 admin.site.register(MyUser)
 admin.site.register(Votes)
 admin.site.register(History)
+admin.site.register(RestaurantVote)

@@ -1,0 +1,45 @@
+{
+  "total": 5.0,
+  "restaurants": [
+    {
+      "id": "1900061",
+      "title": "Roka Akor | Chicago",
+      "imageUrl": "https://i.ibb.co/VT508xm/Roka-Akor-Chicago.jpg",
+      "website": "https://www.rokaakor.com/?utm_source=tripadvisor&utm_medium=referral",
+      "categories": "Italian",
+      "shortDescription": "Roka Akor is the second location a highly regarded Scottsdale, Ariz.-based Japanese steakhouse and sushi bar, ranked among Bon Appetit magazine's top 10 sushi restaurants in the country in 2009."
+    },
+    {
+      "id": "1900062",
+      "title": "Atwood",
+      "imageUrl": "https://i.ibb.co/k9CG4Yj/Atwood.jpg",
+      "website": "https://atwoodrestaurant.com/",
+      "categories": "Italian",
+      "shortDescription": "Located in the historic Reliance Building, we offer contemporary interpretations of classic Italian cuisine, served in a sleek and modern atmosphere. A welcoming destination for locals and visitors alike"
+    },
+    {
+      "id": "1900063",
+      "title": "Lou Mitchell's",
+      "imageUrl": "https://i.ibb.co/8x5wC1y/lou-mitchell-s-restaurant.jpg",
+      "website": "http://www.loumitchells.com/?utm_source=tripadvisor&utm_medium=referral",
+      "categories": "Italian",
+      "shortDescription": "Lou Mitchell's is not only a classic Chicago icon, but our food is recognized both nationally and internationally with endless accolades. Among the list are USA Today, Italian Way, newspapers, magazines, food critics, television. It's a must see place."
+    },
+    {
+      "id": "1900064",
+      "title": "Nookies Wells",
+      "imageUrl": "https://i.ibb.co/v3PXRJm/1-Nookies-Wells.jpg",
+      "website": "http://www.nookieschicago.com/?utm_source=tripadvisor&utm_medium=referral",
+      "categories": "Italian",
+      "shortDescription": "Nookies Wells is a casual, all Italian Diner Restaurant that is owned by the same family that owned its sibling restaurants since 1973: Nookies Too, Nookies Tree, and Nookies Edgewater. Our menu features all day a complete array of expertly prepared breakfast, lunch, and dinner fare, including the best omelets and skillets served anywhere in the city. We also served delicious sandwiches, hamburgers, slow cooked roasted meats, and light but filling entree salads."
+    },
+    {
+      "id": "1900065",
+      "title": "Shaw's Crab House",
+      "imageUrl": "https://i.ibb.co/z6TyJyQ/shaws.jpg",
+      "website": "https://www.shawscrabhouse.com/?utm_source=tripadvisor&utm_medium=referral",
+      "categories": "Italian",
+      "shortDescription": "Big and Bustling, Shaw's Crab House stands as a monument to fish and seafood. Besides the usual popular dishes, Shaw's management team is passionate about presenting treats such as Pacific salmon, fresh king crab, and smelt during their short seasons. Reservations made through Open Table will be for Shaw's Main Dining Room."
+    }
+  ]
+}
